@@ -1,557 +1,480 @@
 --// =========================================
---//        PICKAXE TYCOON HUB
---//          SILENT EDITION
+--//      ALEXIHAX HUB DEV v1.0.0
 --// =========================================
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
+repeat task.wait() until game:IsLoaded()
 
-local player = Players.LocalPlayer
+-- =====================================
+-- SERVICES
+-- =====================================
 
---// =========================================
---// KEY
---// =========================================
+local Players =
+    game:GetService("Players")
 
-local KEY = "pickaxehub"
+local Workspace =
+    game:GetService("Workspace")
 
---// =========================================
---// RAYFIELD
---// =========================================
+local TweenService =
+    game:GetService("TweenService")
 
-local Rayfield = loadstring(game:HttpGet(
-    "https://sirius.menu/rayfield"
+local HttpService =
+    game:GetService("HttpService")
+
+local MarketplaceService =
+    game:GetService("MarketplaceService")
+
+local LocalPlayer =
+    Players.LocalPlayer
+
+local Character =
+    LocalPlayer.Character
+    or LocalPlayer.CharacterAdded:Wait()
+
+local HumanoidRootPart =
+    Character:WaitForChild(
+        "HumanoidRootPart"
+    )
+
+-- =====================================
+-- WEBHOOK
+-- =====================================
+
+local WEBHOOK =
+"YOUR_DISCORD_WEBHOOK"
+
+local function SendWebhook(msg)
+
+    pcall(function()
+
+        request({
+            Url = WEBHOOK,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] =
+                    "application/json"
+            },
+            Body =
+                HttpService:JSONEncode({
+                    content = msg
+                })
+        })
+
+    end)
+end
+
+-- =====================================
+-- RAYFIELD
+-- =====================================
+
+local Rayfield =
+loadstring(game:HttpGet(
+"https://sirius.menu/rayfield"
 ))()
 
-local Window = Rayfield:CreateWindow({
-    Name = "⛏️ Pickaxe Tycoon Hub",
-    LoadingTitle = "Pickaxe Tycoon",
-    LoadingSubtitle = "Silent Edition",
+local Window =
+Rayfield:CreateWindow({
+
+    Name =
+    "Alexihax HUB DEV v1.0.0",
+
+    LoadingTitle =
+    "Alexihax HUB DEV v1.0.0",
+
+    LoadingSubtitle =
+    MarketplaceService:GetProductInfo(
+        game.PlaceId
+    ).Name,
+
     ConfigurationSaving = {
         Enabled = false
     },
+
     Discord = {
         Enabled = false
     },
-    KeySystem = true,
-    KeySettings = {
-        Title = "Pickaxe Tycoon Hub",
-        Subtitle = "Key System",
-        Note = "Key: " .. KEY,
-        FileName = "PickaxeHubKey",
-        SaveKey = true,
-        GrabKeyFromSite = false,
-        Key = {KEY}
-    }
+
+    KeySystem = false
 })
 
-local Main = Window:CreateTab(
+local MainTab =
+Window:CreateTab(
     "Main",
     4483362458
 )
 
-local Settings = Window:CreateTab(
-    "Settings",
-    4483362458
-)
+-- =====================================
+-- VARIABLES
+-- =====================================
 
---// =========================================
---// STATES
---// =========================================
-
-local AutoBuy = false
+local AutoOre = false
 local AutoDeposit = false
-local AutoCollectMoney = false
-local AutoUpgrade = false
-local AutoGroup = false
-local AutoCollectOre = false
+local AutoCollect = false
+local AutoBuy = false
 local AutoMerge = false
 
-local DepositMultiplier = 2
+local DepositMultiplier = 1.5
 
---// =========================================
---// ROOT
---// =========================================
+local LastOreTP = 0
+local LastDepositTP = 0
+local LastCollectTP = 0
+local LastBuyTP = 0
 
-local function getRoot()
+local OreCooldown = 0.35
+local DepositCooldown = 0.5
+local CollectCooldown = 0.5
+local BuyCooldown = 0.5
 
-    local char =
-        player.Character
-        or player.CharacterAdded:Wait()
+-- =====================================
+-- SILENT TP
+-- =====================================
 
-    return char:WaitForChild(
-        "HumanoidRootPart"
-    )
-end
+local function SilentTP(pos)
 
---// =========================================
---// SILENT MOVE
---// =========================================
-
-local function moveTo(part, speed)
-
-    local root = getRoot()
-
-    if not root or not part then
+    if not Character
+    or not HumanoidRootPart then
         return
     end
 
-    speed = speed or 0.08
+    local old =
+        HumanoidRootPart.CFrame
 
-    pcall(function()
+    HumanoidRootPart.CFrame =
+        CFrame.new(pos)
 
-        root.AssemblyLinearVelocity =
-            Vector3.zero
+    task.wait(0.08)
 
-        local tween =
-            TweenService:Create(
-
-                root,
-
-                TweenInfo.new(
-                    speed,
-                    Enum.EasingStyle.Linear
-                ),
-
-                {
-                    CFrame =
-                        part.CFrame
-                        + Vector3.new(0,3,0)
-                }
-            )
-
-        tween:Play()
-
-    end)
+    HumanoidRootPart.CFrame =
+        old
 end
 
-local function stand(part, duration)
+-- =====================================
+-- GET PLOT
+-- =====================================
 
-    duration = duration or 0.25
+local function GetPlot()
 
-    moveTo(part)
-
-    task.wait(duration)
-end
-
---// =========================================
---// FIND MY PLOT
---// =========================================
-
-local function getMyPlot()
-
-    local plots =
-        workspace:FindFirstChild("Plots")
-
-    local root = getRoot()
-
-    if not plots then
-        return nil
-    end
-
-    local closestPlot
-    local closestDistance = math.huge
-
-    for _, plot in ipairs(
-        plots:GetChildren()
+    for _, plot in pairs(
+        Workspace.Plots:GetChildren()
     ) do
 
-        local buttons =
-            plot:FindFirstChild("Buttons")
+        local owner =
+            plot:FindFirstChild(
+                "Owner"
+            )
 
-        if buttons then
+        if owner
+        and owner.Value == LocalPlayer then
 
-            local buttonPart =
-                buttons:FindFirstChild(
-                    "Button",
-                    true
+            return plot
+        end
+    end
+end
+
+-- =====================================
+-- GET MULTIPLIER
+-- =====================================
+
+local function GetMultiplier()
+
+    local mult =
+        Workspace:FindFirstChild(
+            "OreMultPart"
+        )
+
+    if mult
+    and mult:FindFirstChild(
+        "SurfaceGui"
+    ) then
+
+        local txt =
+            mult.SurfaceGui
+            :FindFirstChildOfClass(
+                "TextLabel"
+            )
+
+        if txt then
+
+            local num =
+                tonumber(
+                    txt.Text:gsub(
+                        "[^%d%.]",
+                        ""
+                    )
                 )
 
-            if buttonPart
-            and buttonPart:IsA("BasePart") then
+            return num or 1
+        end
+    end
 
-                local distance =
-                    (
-                        buttonPart.Position
-                        - root.Position
-                    ).Magnitude
+    return 1
+end
 
-                if distance < closestDistance then
+-- =====================================
+-- AUTO ORE
+-- =====================================
 
-                    closestDistance =
-                        distance
+task.spawn(function()
 
-                    closestPlot = plot
+    while task.wait() do
+
+        if AutoOre then
+
+            if tick()
+            - LastOreTP
+            >= OreCooldown then
+
+                LastOreTP =
+                    tick()
+
+                for _, loot in pairs(
+                    Workspace:GetDescendants()
+                ) do
+
+                    if loot.Name ==
+                    "LootMeshPart" then
+
+                        SilentTP(
+                            loot.Position
+                        )
+                    end
                 end
             end
         end
     end
+end)
 
-    return closestPlot
-end
+-- =====================================
+-- AUTO DEPOSIT
+-- =====================================
 
---// =========================================
---// GET MULTIPLIER
---// =========================================
+task.spawn(function()
 
-local function getOreMultiplier()
+    while task.wait(1) do
 
-    local ore =
-        workspace:FindFirstChild(
-            "OreMultPart",
-            true
-        )
+        if AutoDeposit then
 
-    if not ore then
-        return 1
-    end
+            local mult =
+                GetMultiplier()
 
-    local text = ""
+            if mult
+            >= DepositMultiplier then
 
-    for _, obj in ipairs(
-        ore:GetDescendants()
-    ) do
+                if tick()
+                - LastDepositTP
+                >= DepositCooldown then
 
-        if obj:IsA("TextLabel")
-        or obj:IsA("TextBox") then
+                    LastDepositTP =
+                        tick()
 
-            text = obj.Text
-            break
+                    local plot =
+                        GetPlot()
+
+                    if plot then
+
+                        local button =
+                            plot
+                            .Sell
+                            .DepositButton
+                            .Button
+
+                        SilentTP(
+                            button.Position
+                        )
+                    end
+                end
+            end
         end
     end
+end)
 
-    local num =
-        tonumber(
-            string.match(
-                text,
-                "%d+%.?%d*"
+-- =====================================
+-- AUTO COLLECT
+-- =====================================
+
+task.spawn(function()
+
+    while task.wait(1) do
+
+        if AutoCollect then
+
+            if tick()
+            - LastCollectTP
+            >= CollectCooldown then
+
+                LastCollectTP =
+                    tick()
+
+                local plot =
+                    GetPlot()
+
+                if plot then
+
+                    local button =
+                        plot
+                        .Sell
+                        .CollectButton
+                        .Button
+
+                    SilentTP(
+                        button.Position
+                    )
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================
+-- AUTO BUY
+-- =====================================
+
+task.spawn(function()
+
+    while task.wait(1) do
+
+        if AutoBuy then
+
+            if tick()
+            - LastBuyTP
+            >= BuyCooldown then
+
+                LastBuyTP =
+                    tick()
+
+                local plot =
+                    GetPlot()
+
+                if plot then
+
+                    local button =
+                        plot
+                        .Buttons
+                        :FindFirstChild(
+                            "ButtonBuy100"
+                        )
+
+                    if button
+                    and button:FindFirstChild(
+                        "Button"
+                    ) then
+
+                        SilentTP(
+                            button.Button
+                            .Position
+                        )
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================
+-- AUTO MERGE
+-- =====================================
+
+task.spawn(function()
+
+    while task.wait(2) do
+
+        if AutoMerge then
+
+            local plot =
+                GetPlot()
+
+            if plot then
+
+                local button =
+                    plot
+                    .Buttons
+                    :FindFirstChild(
+                        "ButtonMerge"
+                    )
+
+                if button
+                and button:FindFirstChild(
+                    "Button"
+                ) then
+
+                    SilentTP(
+                        button.Button
+                        .Position
+                    )
+                end
+            end
+        end
+    end
+end)
+
+-- =====================================
+-- WEBHOOK EARNINGS
+-- =====================================
+
+local LastMoney = 0
+
+task.spawn(function()
+
+    while task.wait(60) do
+
+        local stats =
+            LocalPlayer
+            :FindFirstChild(
+                "leaderstats"
             )
-        )
 
-    return num or 1
-end
+        if stats then
 
---// =========================================
---// FAST SILENT ORE COLLECT
---// =========================================
+            local money =
+                stats:FindFirstChild(
+                    "Money"
+                )
 
-local function doCollectOre()
+            if money then
 
-    local root = getRoot()
+                local earned =
+                    money.Value
+                    - LastMoney
 
-    if not root then
-        return
-    end
+                LastMoney =
+                    money.Value
 
-    local loot = {}
+                if earned > 0 then
 
-    for _, obj in ipairs(
-        workspace:GetDescendants()
-    ) do
-
-        if obj:IsA("BasePart")
-        and obj.Name == "LootMeshPart" then
-
-            table.insert(loot, obj)
+                    SendWebhook(
+                        "💰 " ..
+                        LocalPlayer.Name ..
+                        " earned $" ..
+                        tostring(earned)
+                    )
+                end
+            end
         end
     end
+end)
 
-    table.sort(loot, function(a,b)
+-- =====================================
+-- TOGGLES
+-- =====================================
 
-        return
-            (a.Position - root.Position).Magnitude
-            <
-            (b.Position - root.Position).Magnitude
-
-    end)
-
-    for i = 1, math.min(15, #loot) do
-
-        local ore = loot[i]
-
-        moveTo(ore, 0.025)
-
-        task.wait(0.03)
-    end
-end
-
---// =========================================
---// AUTO BUY 100x
---// =========================================
-
-local function doBuy()
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local buttons =
-        plot:FindFirstChild("Buttons")
-
-    if not buttons then
-        return
-    end
-
-    local buy100 =
-        buttons:FindFirstChild(
-            "ButtonBuy100"
-        )
-
-    if not buy100 then
-        return
-    end
-
-    local pad =
-        buy100:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.2)
-    end
-end
-
---// =========================================
---// AUTO MERGE
---// =========================================
-
-local function doMerge()
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local buttons =
-        plot:FindFirstChild("Buttons")
-
-    if not buttons then
-        return
-    end
-
-    local merge =
-        buttons:FindFirstChild(
-            "ButtonMerge"
-        )
-
-    if not merge then
-        return
-    end
-
-    local pad =
-        merge:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.2)
-    end
-end
-
---// =========================================
---// AUTO DEPOSIT
---// =========================================
-
-local function doDeposit()
-
-    local mult =
-        getOreMultiplier()
-
-    if mult < DepositMultiplier then
-        return
-    end
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local sell =
-        plot:FindFirstChild("Sell")
-
-    if not sell then
-        return
-    end
-
-    local deposit =
-        sell:FindFirstChild(
-            "DepositButton"
-        )
-
-    if not deposit then
-        return
-    end
-
-    local pad =
-        deposit:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.25)
-    end
-end
-
---// =========================================
---// AUTO MONEY
---// =========================================
-
-local function doCollectMoney()
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local sell =
-        plot:FindFirstChild("Sell")
-
-    if not sell then
-        return
-    end
-
-    local collect =
-        sell:FindFirstChild(
-            "CollectButton"
-        )
-
-    if not collect then
-        return
-    end
-
-    local pad =
-        collect:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.2)
-    end
-end
-
---// =========================================
---// AUTO UPGRADE
---// =========================================
-
-local function doUpgrade()
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local sell =
-        plot:FindFirstChild("Sell")
-
-    if not sell then
-        return
-    end
-
-    local upgrade =
-        sell:FindFirstChild(
-            "UpgradeButton"
-        )
-
-    if not upgrade then
-        return
-    end
-
-    local pad =
-        upgrade:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.2)
-    end
-end
-
---// =========================================
---// AUTO GROUP
---// =========================================
-
-local function doGroup()
-
-    local plot = getMyPlot()
-
-    if not plot then
-        return
-    end
-
-    local group =
-        plot:FindFirstChild(
-            "GroupReward"
-        )
-
-    if not group then
-        return
-    end
-
-    local collect =
-        group:FindFirstChild(
-            "CollectButton"
-        )
-
-    if not collect then
-        return
-    end
-
-    local pad =
-        collect:FindFirstChild(
-            "Button"
-        )
-
-    if pad then
-
-        stand(pad, 0.2)
-    end
-end
-
---// =========================================
---// GUI
---// =========================================
-
-local MultiplierParagraph =
-    Main:CreateParagraph({
-        Title = "Ore Multiplier",
-        Content = "1x"
-    })
-
-Main:CreateToggle({
-    Name = "Auto Collect Ore",
+MainTab:CreateToggle({
+    Name = "Auto Ore",
     CurrentValue = false,
     Callback = function(v)
-        AutoCollectOre = v
+        AutoOre = v
     end
 })
 
-Main:CreateToggle({
-    Name = "Auto Buy 100x",
-    CurrentValue = false,
+MainTab:CreateSlider({
+    Name = "Ore TP Cooldown",
+    Range = {0.1, 1},
+    Increment = 0.05,
+    CurrentValue = 0.35,
     Callback = function(v)
-        AutoBuy = v
+        OreCooldown = v
     end
 })
 
-Main:CreateToggle({
-    Name = "Auto Merge",
-    CurrentValue = false,
-    Callback = function(v)
-        AutoMerge = v
-    end
-})
-
-Main:CreateToggle({
+MainTab:CreateToggle({
     Name = "Auto Deposit",
     CurrentValue = false,
     Callback = function(v)
@@ -559,115 +482,53 @@ Main:CreateToggle({
     end
 })
 
-Main:CreateToggle({
-    Name = "Auto Collect Money",
-    CurrentValue = false,
-    Callback = function(v)
-        AutoCollectMoney = v
-    end
-})
-
-Main:CreateToggle({
-    Name = "Auto Upgrade",
-    CurrentValue = false,
-    Callback = function(v)
-        AutoUpgrade = v
-    end
-})
-
-Main:CreateToggle({
-    Name = "Auto Group Reward",
-    CurrentValue = false,
-    Callback = function(v)
-        AutoGroup = v
-    end
-})
-
---// =========================================
---// SETTINGS
---// =========================================
-
-Settings:CreateSlider({
-    Name = "Deposit Multiplier",
-    Range = {1, 2},
+MainTab:CreateSlider({
+    Name = "Deposit At Multiplier",
+    Range = {1, 1.5},
     Increment = 0.1,
+    CurrentValue = 1.5,
     Suffix = "x",
-    CurrentValue = 2,
     Callback = function(v)
-
         DepositMultiplier = v
     end
 })
 
---// =========================================
---// LIVE MULTIPLIER
---// =========================================
-
-task.spawn(function()
-
-    while task.wait(0.2) do
-
-        pcall(function()
-
-            local mult =
-                getOreMultiplier()
-
-            MultiplierParagraph:Set({
-                Title = "Ore Multiplier",
-                Content =
-                    tostring(mult)
-                    .. "x"
-            })
-
-        end)
+MainTab:CreateToggle({
+    Name = "Auto Collect",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoCollect = v
     end
-end)
+})
 
---// =========================================
---// MAIN LOOP
---// =========================================
-
-task.spawn(function()
-
-    while task.wait(0.08) do
-
-        pcall(function()
-
-            if AutoCollectOre then
-                doCollectOre()
-            end
-
-            if AutoDeposit then
-                doDeposit()
-            end
-
-            if AutoCollectMoney then
-                doCollectMoney()
-            end
-
-            if AutoBuy then
-                doBuy()
-            end
-
-            if AutoMerge then
-                doMerge()
-            end
-
-            if AutoUpgrade then
-                doUpgrade()
-            end
-
-            if AutoGroup then
-                doGroup()
-            end
-
-        end)
+MainTab:CreateSlider({
+    Name = "Collect Cooldown",
+    Range = {0.1, 2},
+    Increment = 0.1,
+    CurrentValue = 0.5,
+    Callback = function(v)
+        CollectCooldown = v
     end
-end)
+})
+
+MainTab:CreateToggle({
+    Name = "Auto Buy x100",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoBuy = v
+    end
+})
+
+MainTab:CreateToggle({
+    Name = "Auto Merge",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoMerge = v
+    end
+})
 
 Rayfield:Notify({
-    Title = "Loaded",
-    Content =
-        "Silent Edition Loaded",
-    Duration = 6
+    Title = "Alexihax HUB",
+    Content = "Loaded Successfully",
+    Duration = 5
 })
