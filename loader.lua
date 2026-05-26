@@ -1,15 +1,12 @@
 --// =========================================
---// PLATOBOOST LOADER
+--// PLATOBOOST + RAYFIELD LOADER
 --// =========================================
 
 local HttpService =
     game:GetService("HttpService")
 
-local Players =
-    game:GetService("Players")
-
-local player =
-    Players.LocalPlayer
+local RbxAnalyticsService =
+    game:GetService("RbxAnalyticsService")
 
 -- =====================================
 -- CONFIG
@@ -17,74 +14,123 @@ local player =
 
 local SERVICE = 25623
 
+local MAIN_SCRIPT =
+"https://raw.githubusercontent.com/Alexihax/Alexihax-HUB/main/main.lua"
+
 -- =====================================
 -- HWID
 -- =====================================
 
 local HWID =
-    game:GetService("RbxAnalyticsService")
-    :GetClientId()
+    RbxAnalyticsService:GetClientId()
 
 -- =====================================
--- KEY FILE
+-- RAYFIELD
 -- =====================================
 
-local KEY_FILE = "AlexihaxKey.txt"
+local Rayfield = loadstring(game:HttpGet(
+    "https://sirius.menu/rayfield"
+))()
 
 -- =====================================
--- READ KEY
+-- VERIFY FUNCTION
 -- =====================================
 
-local key = nil
+local function verify_key(key)
 
-if isfile(KEY_FILE) then
+    local url =
+        "https://api.platoboost.com/public/whitelist/"
+        .. SERVICE
+        .. "?identifier="
+        .. HWID
+        .. "&key="
+        .. key
 
-    key = readfile(KEY_FILE)
+    local success, response =
+        pcall(function()
+
+            return game:HttpGet(url)
+
+        end)
+
+    if not success then
+        return false
+    end
+
+    local decoded
+
+    success, decoded =
+        pcall(function()
+
+            return HttpService:JSONDecode(
+                response
+            )
+
+        end)
+
+    if not success then
+        return false
+    end
+
+    if decoded.success
+    and decoded.data
+    and decoded.data.valid then
+
+        return true
+    end
+
+    return false
 end
 
 -- =====================================
--- ASK FOR KEY
+-- WINDOW
 -- =====================================
 
-if not key or key == "" then
-
-    key = game:GetService("StarterGui")
-        :PromptTextInput(
-            "Enter Key",
-            "Paste Platoboost Key"
-        )
-end
+local Window = Rayfield:CreateWindow({
+    Name = "Alexihax Hub",
+    LoadingTitle = "Alexihax Hub",
+    LoadingSubtitle = "Platoboost",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "AlexihaxHub",
+        FileName = "Key"
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = true,
+    KeySettings = {
+        Title = "Alexihax Hub",
+        Subtitle = "Key System",
+        Note = "Get your key from Platoboost",
+        FileName = "AlexihaxKey",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {
+            "temporary"
+        }
+    }
+})
 
 -- =====================================
--- VERIFY
+-- CUSTOM KEY CHECK
 -- =====================================
 
-local url =
-    "https://api.platoboost.com/public/whitelist/"
-    .. SERVICE
-    .. "?identifier="
-    .. HWID
-    .. "&key="
-    .. key
+local enteredKey =
+    Rayfield.LoadConfiguration()
 
-local response =
-    game:HttpGet(url)
-
-local data =
-    HttpService:JSONDecode(response)
-
-if data.success
-and data.data
-and data.data.valid then
-
-    writefile(KEY_FILE, key)
+if enteredKey
+and verify_key(enteredKey) then
 
     loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/Alexihax/Alexihax-HUB/main/main.lua"
+        MAIN_SCRIPT
     ))()
 
 else
 
-    warn("Invalid Key")
-
+    Rayfield:Notify({
+        Title = "Invalid Key",
+        Content = "Please enter a valid Platoboost key.",
+        Duration = 6
+    })
 end
